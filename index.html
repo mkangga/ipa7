@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Pembelajaran Interaktif IPA Kelas 7</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .chapter-card, .quiz-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .chapter-card:hover, .quiz-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 700px;
+            border-radius: 10px;
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-btn:hover,
+        .close-btn:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .quiz-option {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .quiz-option.selected {
+            background-color: #dbeafe; /* blue-100 */
+        }
+        .quiz-option.correct {
+            background-color: #d1fae5; /* green-100 */
+            border-color: #10b981; /* green-500 */
+        }
+        .quiz-option.incorrect {
+            background-color: #fee2e2; /* red-100 */
+            border-color: #ef4444; /* red-500 */
+        }
+        #quiz-feedback, #essay-feedback {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md p-4 sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-blue-600">Belajar IPA Kelas 7</h1>
+            <div class="w-1/2 md:w-1/3">
+                <input type="search" id="search-input" placeholder="Cari materi..." class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="container mx-auto p-4 md:p-8">
+        <div id="search-results"></div>
+        <div id="home-content">
+            <h2 class="text-3xl font-bold mb-6 text-center text-gray-700">Selamat Datang di Portal Belajar IPA!</h2>
+            <p class="text-center mb-8 text-gray-600">Pilih bab untuk mulai belajar atau coba kuis untuk menguji pemahamanmu.</p>
+
+            <!-- Chapter Grid -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="chapter-grid">
+                <!-- Chapter cards will be inserted here by JS -->
+            </div>
+
+            <!-- Quiz Section -->
+            <div class="mt-12 text-center">
+                <h3 class="text-2xl font-bold mb-4 text-gray-700">Uji Pemahamanmu</h3>
+                <div class="flex justify-center gap-4">
+                    <button onclick="startQuiz('multiple-choice')" class="quiz-card bg-blue-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg">Mulai Kuis Pilihan Ganda</button>
+                    <button onclick="startQuiz('essay')" class="quiz-card bg-green-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg">Mulai Kuis Esai</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Chapter Content -->
+    <div id="chapter-modal" class="modal">
+        <div class="modal-content relative">
+            <span class="close-btn absolute top-2 right-4" onclick="closeModal('chapter-modal')">&times;</span>
+            <div id="modal-body" class="prose max-w-none"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Quiz -->
+    <div id="quiz-modal" class="modal">
+        <div class="modal-content">
+             <span class="close-btn" onclick="closeModal('quiz-modal')">&times;</span>
+            <div id="quiz-container">
+                <h2 id="quiz-title" class="text-2xl font-bold mb-4"></h2>
+                <div id="quiz-progress" class="mb-4 text-sm text-gray-600"></div>
+                <div id="quiz-content"></div>
+                <div class="mt-6 flex justify-between">
+                    <button id="prev-question-btn" onclick="prevQuestion()" class="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg hidden">Sebelumnya</button>
+                    <button id="next-question-btn" onclick="nextQuestion()" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Selanjutnya</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chapters = [
+            {
+                title: "Bab 1: Hakikat Ilmu Sains dan Metode Ilmiah",
+                content: `
+                    <h3 class='text-2xl font-bold mb-4'>Bab 1: Hakikat Ilmu Sains dan Metode Ilmiah</h3>
+                    <div class='space-y-6'>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Pengantar</h4>
+                            <p>Sains adalah ilmu pengetahuan sistematis tentang alam dan dunia fisik. Bab ini memperkenalkan cabang-cabang Sains (Biologi, Fisika, Kimia, Geologi, Astronomi, Ekologi) dan peran ilmuwan dalam mengembangkan pengetahuan.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Penjelasan</h4>
+                            <p><strong>Metode Ilmiah</strong> adalah pendekatan sistematis yang digunakan para ilmuwan. Langkah-langkahnya adalah:</p>
+                            <ol class='list-decimal list-inside space-y-2'>
+                                <li><strong>Observasi:</strong> Mengamati fenomena dengan panca indra.</li>
+                                <li><strong>Hipotesis:</strong> Membuat dugaan sementara yang logis dan dapat diuji.</li>
+                                <li><strong>Merancang Percobaan:</strong> Menentukan variabel (bebas, terikat, kontrol), alat, bahan, dan prosedur.</li>
+                                <li><strong>Eksperimen:</strong> Melakukan percobaan untuk menguji hipotesis.</li>
+                                <li><strong>Mengumpulkan & Menganalisis Data:</strong> Mencatat hasil pengukuran (data kuantitatif) dan deskripsi (data kualitatif) dalam tabel dan grafik.</li>
+                                <li><strong>Menarik Kesimpulan:</strong> Menyimpulkan hasil berdasarkan data dan membandingkannya dengan hipotesis.</li>
+                            </ol>
+                            <p><strong>Laboratorium IPA:</strong> Tempat melakukan eksperimen dengan alat khusus seperti gelas ukur, mikroskop, dan termometer. Keselamatan di lab sangat penting, seperti memakai jas lab dan kacamata pengaman.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Contoh</h4>
+                            <p>Seorang siswa ingin mengetahui "Apakah jumlah pupuk mempengaruhi tinggi tanaman?".<br>
+                            - <strong>Variabel Bebas:</strong> Jumlah pupuk.<br>
+                            - <strong>Variabel Terikat:</strong> Tinggi tanaman.<br>
+                            - <strong>Variabel Kontrol:</strong> Jenis tanaman, jumlah air, cahaya matahari, jenis tanah.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Rangkuman</h4>
+                            <p>Sains adalah studi tentang alam yang dilakukan melalui metode ilmiah. Proses ini melibatkan pengamatan, hipotesis, eksperimen, analisis data, dan kesimpulan. Pengukuran yang akurat (besaran dan satuan) dan keselamatan di laboratorium adalah kunci utama dalam penelitian ilmiah.</p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "Bab 2: Zat dan Perubahannya",
+                content: `
+                    <h3 class='text-2xl font-bold mb-4'>Bab 2: Zat dan Perubahannya</h3>
+                    <div class='space-y-6'>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Pengantar</h4>
+                            <p>Materi adalah segala sesuatu yang memiliki massa dan menempati ruang. Bab ini membahas wujud zat (padat, cair, gas), perubahan wujud, serta perubahan fisika dan kimia.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Penjelasan</h4>
+                            <p><strong>Wujud Zat & Model Partikel:</strong></p>
+                            <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Padat:</strong> Partikel sangat rapat, teratur, ikatan kuat, hanya bergetar. Bentuk dan volume tetap.</li>
+                                <li><strong>Cair:</strong> Partikel rapat namun acak, ikatan lemah, dapat bergerak/mengalir. Bentuk berubah, volume tetap.</li>
+                                <li><strong>Gas:</strong> Partikel sangat renggang, acak, ikatan sangat lemah, bergerak bebas. Bentuk dan volume berubah.</li>
+                            </ul>
+                            <p><strong>Perubahan Wujud Zat:</strong> Mencair, membeku, menguap, mengembun, menyublim, dan mengkristal. Perubahan ini terjadi karena penyerapan atau pelepasan kalor.</p>
+                            <p><strong>Perubahan Fisika vs. Kimia:</strong></p>
+                             <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Perubahan Fisika:</strong> Tidak menghasilkan zat baru, hanya mengubah wujud atau bentuk (misal: es mencair, kertas disobek). Sifatnya dapat kembali (reversibel).</li>
+                                <li><strong>Perubahan Kimia:</strong> Menghasilkan zat baru dengan sifat yang berbeda (misal: kertas dibakar, besi berkarat). Tidak dapat kembali (ireversibel). Tanda-tandanya: perubahan warna, terbentuk gas/endapan, perubahan suhu.</li>
+                             </ul>
+                            <p><strong>Kerapatan Zat (Massa Jenis):</strong> Ukuran massa per satuan volume ($\rho = m/V$). Benda dengan massa jenis lebih kecil dari cairan akan mengapung.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Contoh</h4>
+                            <p>Siklus air di alam adalah contoh perubahan fisika (menguap, mengembun, mencair, membeku). Pembakaran kayu menjadi arang adalah contoh perubahan kimia.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Rangkuman</h4>
+                            <p>Zat ada dalam tiga wujud yang ditentukan oleh susunan partikelnya. Zat dapat mengalami perubahan fisika (perubahan wujud) dan perubahan kimia (reaksi kimia). Kerapatan zat menentukan apakah suatu benda akan tenggelam atau mengapung.</p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "Bab 3: Suhu, Kalor, dan Pemuaian",
+                content: `
+                    <h3 class='text-2xl font-bold mb-4'>Bab 3: Suhu, Kalor, dan Pemuaian</h3>
+                    <div class='space-y-6'>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Pengantar</h4>
+                            <p>Bab ini membahas konsep dasar suhu, kalor sebagai energi panas yang berpindah, dan pemuaian sebagai dampak dari perubahan suhu pada benda.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Penjelasan</h4>
+                            <p><strong>Suhu:</strong> Ukuran derajat panas atau dinginnya suatu benda. Diukur dengan termometer. Skala suhu yang umum adalah Celsius ($^{\circ}$C), Fahrenheit ($^{\circ}$F), Reamur ($^{\circ}$R), dan Kelvin (K) sebagai satuan SI.</p>
+                            <p><strong>Kalor:</strong> Bentuk energi yang berpindah dari benda bersuhu tinggi ke benda bersuhu rendah. Satuan SI-nya adalah Joule (J). Perpindahan kalor terjadi melalui tiga cara:</p>
+                            <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Konduksi:</strong> Perpindahan panas melalui zat padat tanpa disertai perpindahan partikel (misal: ujung sendok jadi panas saat mengaduk teh panas).</li>
+                                <li><strong>Konveksi:</strong> Perpindahan panas melalui zat cair atau gas yang disertai perpindahan partikel (misal: gerakan air saat direbus).</li>
+                                <li><strong>Radiasi:</strong> Perpindahan panas tanpa memerlukan medium (misal: panas matahari sampai ke Bumi).</li>
+                            </ul>
+                            <p><strong>Pemuaian:</strong> Bertambahnya ukuran (panjang, luas, atau volume) suatu benda karena kenaikan suhu. Terjadi pada zat padat, cair, dan gas. Contoh aplikasinya adalah pemasangan rel kereta api yang diberi celah.</p>
+                        </div>
+                        <div>
+                           <h4 class='text-xl font-semibold'>Contoh</h4>
+                           <p>Termos dirancang untuk mencegah perpindahan kalor. Ruang hampa di antara dua dindingnya mencegah konduksi dan konveksi, sementara lapisan perak mengkilap mencegah radiasi.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Rangkuman</h4>
+                            <p>Suhu adalah ukuran tingkat panas, sedangkan kalor adalah energi panas yang berpindah. Perpindahan kalor dapat terjadi melalui konduksi, konveksi, dan radiasi. Kenaikan suhu menyebabkan benda memuai, yaitu ukurannya bertambah.</p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "Bab 4: Gerak dan Gaya",
+                content: `
+                    <h3 class='text-2xl font-bold mb-4'>Bab 4: Gerak dan Gaya</h3>
+                    <div class='space-y-6'>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Pengantar</h4>
+                            <p>Gerak dan gaya adalah konsep fundamental dalam fisika. Bab ini menjelaskan tentang bagaimana benda bergerak (kinematika) dan apa yang menyebabkan benda bergerak (dinamika).</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Penjelasan</h4>
+                            <p><strong>Gerak Benda:</strong></p>
+                             <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Jarak vs Perpindahan:</strong> Jarak adalah total lintasan yang ditempuh, sedangkan perpindahan adalah perubahan posisi dari titik awal ke titik akhir (memperhitungkan arah).</li>
+                                <li><strong>Kelajuan vs Kecepatan:</strong> Kelajuan adalah jarak per satuan waktu (besaran skalar). Kecepatan adalah perpindahan per satuan waktu (besaran vektor, punya arah).</li>
+                                <li><strong>Percepatan:</strong> Perubahan kecepatan per satuan waktu. Bisa positif (dipercepat) atau negatif (diperlambat).</li>
+                             </ul>
+                             <p><strong>Gaya:</strong> Tarikan atau dorongan yang dapat menyebabkan perubahan gerak atau bentuk benda. Satuan SI-nya adalah Newton (N).</p>
+                             <p><strong>Hukum Newton tentang Gerak:</strong></p>
+                             <ol class='list-decimal list-inside space-y-2'>
+                                 <li><strong>Hukum I Newton (Inersia/Kelembaman):</strong> Benda akan tetap diam atau bergerak lurus beraturan jika resultan gaya yang bekerja padanya nol.</li>
+                                 <li><strong>Hukum II Newton:</strong> Percepatan benda sebanding dengan resultan gaya dan berbanding terbalik dengan massanya (F = m.a).</li>
+                                 <li><strong>Hukum III Newton (Aksi-Reaksi):</strong> Untuk setiap aksi, ada reaksi yang sama besar dan berlawanan arah (F_aksi = -F_reaksi).</li>
+                             </ol>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Contoh</h4>
+                            <p>Saat mobil direm mendadak, tubuh kita terdorong ke depan. Ini adalah contoh Hukum I Newton (inersia). Mendorong meja adalah aplikasi Hukum II Newton. Dayung mendorong air ke belakang (aksi) dan perahu bergerak ke depan (reaksi) adalah contoh Hukum III Newton.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Rangkuman</h4>
+                            <p>Gerak dijelaskan oleh jarak, perpindahan, kelajuan, kecepatan, dan percepatan. Gaya adalah penyebab perubahan gerak, yang dijelaskan secara fundamental oleh Tiga Hukum Newton.</p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "Bab 5: Klasifikasi Makhluk Hidup",
+                content: `
+                    <h3 class='text-2xl font-bold mb-4'>Bab 5: Klasifikasi Makhluk Hidup</h3>
+                    <div class='space-y-6'>
+                        <div>
+                           <h4 class='text-xl font-semibold'>Pengantar</h4>
+                           <p>Dengan jutaan jenis makhluk hidup di Bumi, para ilmuwan memerlukan sistem untuk mengelompokkannya. Bab ini membahas tentang ciri-ciri makhluk hidup dan dasar-dasar klasifikasi.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Penjelasan</h4>
+                            <p><strong>Ciri-ciri Makhluk Hidup:</strong> Bernapas, bergerak, memerlukan nutrisi (makan), tumbuh dan berkembang, bereproduksi (berkembang biak), peka terhadap rangsang (iritabilitas), dan mengeluarkan zat sisa (ekskresi).</p>
+                            <p><strong>Klasifikasi (Taksonomi):</strong> Ilmu pengelompokan makhluk hidup berdasarkan persamaan dan perbedaan ciri. Tujuannya untuk mempermudah mempelajari keanekaragaman hayati. Sistem klasifikasi modern digagas oleh Carolus Linnaeus.</p>
+                            <p><strong>Urutan Takson:</strong></p>
+                            <ol class='list-decimal list-inside'>
+                                <li>Kingdom (Kerajaan)</li>
+                                <li>Filum (untuk hewan) / Divisi (untuk tumbuhan)</li>
+                                <li>Kelas</li>
+                                <li>Ordo (Bangsa)</li>
+                                <li>Famili (Suku)</li>
+                                <li>Genus (Marga)</li>
+                                <li>Spesies (Jenis)</li>
+                            </ol>
+                            <p><strong>Sistem Lima Kingdom:</strong></p>
+                            <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Monera:</strong> Prokariotik (tidak punya membran inti), contoh: bakteri.</li>
+                                <li><strong>Protista:</strong> Eukariotik sederhana, ada yang mirip hewan (Protozoa), tumbuhan (Alga), dan jamur.</li>
+                                <li><strong>Fungi (Jamur):</strong> Eukariotik, heterotrof (mendapatkan makanan dari organisme lain), tidak bisa fotosintesis.</li>
+                                <li><strong>Plantae (Tumbuhan):</strong> Eukariotik, multiseluler, autotrof (membuat makanan sendiri lewat fotosintesis).</li>
+                                <li><strong>Animalia (Hewan):</strong> Eukariotik, multiseluler, heterotrof, umumnya dapat bergerak.</li>
+                            </ul>
+                            <p><strong>Kunci Determinasi/Dikotomi:</strong> Alat bantu untuk mengidentifikasi makhluk hidup berdasarkan serangkaian pertanyaan dengan dua pilihan yang berlawanan.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Rangkuman</h4>
+                            <p>Makhluk hidup memiliki ciri-ciri khusus yang membedakannya dari benda mati. Untuk mempermudah studi, mereka diklasifikasikan ke dalam takson-takson, dengan sistem lima kingdom (Monera, Protista, Fungi, Plantae, Animalia) sebagai sistem yang umum digunakan.</p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "Bab 6: Ekologi dan Keanekaragaman Hayati",
+                content: `
+                     <h3 class='text-2xl font-bold mb-4'>Bab 6: Ekologi dan Keanekaragaman Hayati Indonesia</h3>
+                    <div class='space-y-6'>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Pengantar</h4>
+                            <p>Ekologi adalah ilmu yang mempelajari interaksi antara makhluk hidup dengan lingkungannya. Bab ini membahas komponen ekosistem, aliran energi, dan kekayaan hayati Indonesia serta ancamannya.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Penjelasan</h4>
+                            <p><strong>Komponen Ekosistem:</strong></p>
+                            <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Komponen Biotik:</strong> Semua makhluk hidup (produsen, konsumen, dekomposer/pengurai).</li>
+                                <li><strong>Komponen Abiotik:</strong> Benda tak hidup (cahaya matahari, air, udara, tanah, suhu).</li>
+                            </ul>
+                            <p><strong>Interaksi dalam Ekosistem:</strong></p>
+                            <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Rantai Makanan:</strong> Proses makan dan dimakan yang membentuk aliran energi. Contoh: Rumput -> Belalang -> Katak -> Ular -> Elang.</li>
+                                <li><strong>Jaring-jaring Makanan:</strong> Kumpulan dari beberapa rantai makanan yang saling berhubungan.</li>
+                                <li><strong>Simbiosis:</strong> Hubungan erat dua spesies. Bisa mutualisme (saling untung), komensalisme (satu untung, satu netral), atau parasitisme (satu untung, satu rugi).</li>
+                            </ul>
+                            <p><strong>Keanekaragaman Hayati Indonesia:</strong> Indonesia adalah negara megabiodiversitas. Persebaran fauna dibagi menjadi tiga wilayah: Asiatis (barat), Peralihan (tengah), dan Australis (timur), dipisahkan oleh Garis Wallace dan Garis Webber.</p>
+                             <p><strong>Ancaman & Konservasi:</strong> Deforestasi, polusi, dan perburuan liar mengancam keanekaragaman hayati. Upaya pelestarian (konservasi) dilakukan secara <strong>in-situ</strong> (di habitat asli, cth: taman nasional) dan <strong>ex-situ</strong> (di luar habitat asli, cth: kebun binatang).</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Contoh</h4>
+                            <p>Hubungan lebah dan bunga adalah simbiosis mutualisme. Pembangunan perkebunan sawit yang masif dapat menyebabkan deforestasi dan mengancam habitat orang utan.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Rangkuman</h4>
+                            <p>Ekosistem terdiri dari komponen biotik dan abiotik yang saling berinteraksi. Aliran energi terjadi melalui rantai makanan. Indonesia memiliki keanekaragaman hayati yang sangat tinggi namun terancam oleh aktivitas manusia, sehingga konservasi sangat penting dilakukan.</p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "Bab 7: Bumi dan Tata Surya",
+                content: `
+                    <h3 class='text-2xl font-bold mb-4'>Bab 7: Bumi dan Tata Surya</h3>
+                    <div class='space-y-6'>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Pengantar</h4>
+                            <p>Bab ini mengajak kita menjelajahi posisi Bumi dalam sistem tata surya, serta fenomena-fenomena alam yang disebabkan oleh pergerakan Bumi dan Bulan.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Penjelasan</h4>
+                            <p><strong>Sistem Tata Surya:</strong> Terdiri dari Matahari sebagai pusat, 8 planet (Merkurius, Venus, Bumi, Mars, Jupiter, Saturnus, Uranus, Neptunus), planet kerdil (cth: Pluto), asteroid, komet, dan satelit.</p>
+                            <p><strong>Gerakan Bumi:</strong></p>
+                            <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Rotasi Bumi:</strong> Perputaran Bumi pada porosnya (±24 jam). Menyebabkan terjadinya siang dan malam, gerak semu harian matahari, dan perbedaan waktu.</li>
+                                <li><strong>Revolusi Bumi:</strong> Peredaran Bumi mengelilingi Matahari (±365.25 hari). Menyebabkan pergantian musim dan perbedaan lamanya siang dan malam.</li>
+                            </ul>
+                            <p><strong>Bulan sebagai Satelit Bumi:</strong></p>
+                             <ul class='list-disc list-inside space-y-2'>
+                                <li><strong>Fase Bulan:</strong> Perubahan penampakan Bulan dari Bumi karena pantulan cahaya Matahari (Bulan Baru, Sabit, Purnama, dll).</li>
+                                <li><strong>Gerhana:</strong> Terjadi ketika posisi Matahari, Bumi, dan Bulan berada dalam satu garis lurus. 
+                                    <ul>
+                                        <li><strong>Gerhana Bulan:</strong> Bumi berada di antara Matahari dan Bulan.</li>
+                                        <li><strong>Gerhana Matahari:</strong> Bulan berada di antara Matahari dan Bumi.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Pasang Surut Air Laut:</strong> Disebabkan oleh gaya gravitasi Bulan dan Matahari.</li>
+                             </ul>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Contoh</h4>
+                            <p>Negara di belahan bumi utara mengalami musim dingin saat poros bumi menjauhi matahari, sementara belahan bumi selatan mengalami musim panas.</p>
+                        </div>
+                        <div>
+                            <h4 class='text-xl font-semibold'>Rangkuman</h4>
+                            <p>Bumi adalah planet ketiga di tata surya. Gerak rotasi dan revolusinya menyebabkan berbagai fenomena alam seperti siang-malam dan pergantian musim. Bulan, sebagai satelit alami Bumi, juga menyebabkan fenomena seperti fase bulan dan gerhana.</p>
+                        </div>
+                    </div>
+                `
+            }
+        ];
+
+        const multipleChoiceQuiz = [
+            {
+                question: "Seorang ilmuwan ingin menguji pengaruh jenis tanah (tanah liat, pasir, humus) terhadap kecepatan pertumbuhan tanaman kacang. Apa yang menjadi variabel bebas dalam percobaan ini?",
+                options: ["Kecepatan pertumbuhan tanaman", "Jenis tanaman kacang", "Jenis tanah", "Jumlah air yang disiram"],
+                answer: "Jenis tanah",
+                explanation: "Variabel bebas adalah faktor yang sengaja diubah atau dibedakan oleh peneliti untuk dilihat pengaruhnya. Dalam kasus ini, yang diubah-ubah adalah jenis tanah."
+            },
+            {
+                question: "Perubahan wujud dari gas menjadi cair disebut...",
+                options: ["Menguap", "Membeku", "Mengembun", "Menyublim"],
+                answer: "Mengembun",
+                explanation: "Mengembun adalah proses perubahan wujud dari gas menjadi cair, contohnya titik-titik air di bagian luar gelas yang berisi es."
+            },
+            {
+                question: "Panas dari api unggun bisa kita rasakan meskipun kita tidak menyentuhnya secara langsung. Proses perpindahan kalor ini terjadi melalui...",
+                options: ["Konduksi", "Konveksi", "Radiasi", "Isolasi"],
+                answer: "Radiasi",
+                explanation: "Radiasi adalah perpindahan panas tanpa memerlukan medium atau perantara. Panas dari api unggun dan matahari sampai ke kita melalui radiasi."
+            },
+            {
+                question: "Sebuah mobil bergerak ke timur sejauh 100 meter, kemudian berbalik arah ke barat sejauh 40 meter. Berapakah perpindahan mobil tersebut?",
+                options: ["140 meter ke timur", "60 meter ke timur", "140 meter ke barat", "60 meter ke barat"],
+                answer: "60 meter ke timur",
+                explanation: "Perpindahan adalah perubahan posisi dari titik awal ke titik akhir. Jika ke timur positif (+) dan ke barat negatif (-), maka perpindahannya adalah +100 m - 40 m = +60 m atau 60 meter ke timur."
+            },
+            {
+                question: "Makhluk hidup yang dapat membuat makanannya sendiri melalui fotosintesis, seperti tumbuhan, dikelompokkan sebagai...",
+                options: ["Konsumen", "Produsen", "Dekomposer", "Heterotrof"],
+                answer: "Produsen",
+                explanation: "Produsen (atau autotrof) adalah organisme yang dapat menghasilkan makanannya sendiri, biasanya melalui fotosintesis. Tumbuhan adalah contoh utama produsen."
+            },
+            {
+                question: "Hubungan antara lebah yang mengambil nektar dari bunga dan sekaligus membantu penyerbukan bunga tersebut adalah contoh dari simbiosis...",
+                options: ["Parasitisme", "Komensalisme", "Mutualisme", "Amensalisme"],
+                answer: "Mutualisme",
+                explanation: "Simbiosis mutualisme adalah hubungan yang saling menguntungkan kedua belah pihak. Lebah mendapat makanan, dan bunga dibantu penyerbukannya."
+            },
+            {
+                question: "Terjadinya siang dan malam di Bumi disebabkan oleh...",
+                options: ["Revolusi Bumi", "Rotasi Bumi", "Revolusi Bulan", "Kemiringan sumbu Bumi"],
+                answer: "Rotasi Bumi",
+                explanation: "Rotasi Bumi adalah perputaran Bumi pada porosnya. Sisi Bumi yang menghadap Matahari mengalami siang, dan sisi yang membelakangi Matahari mengalami malam."
+            },
+            {
+                question: "Manakah urutan takson dari yang paling tinggi (umum) ke yang paling rendah (spesifik) yang benar?",
+                options: ["Spesies, Genus, Famili, Ordo, Kelas", "Kingdom, Filum, Kelas, Ordo, Famili", "Kelas, Ordo, Famili, Genus, Kingdom", "Filum, Kelas, Ordo, Spesies, Famili"],
+                answer: "Kingdom, Filum, Kelas, Ordo, Famili",
+                explanation: "Urutan taksonomi yang benar dari tingkatan tertinggi ke terendah adalah Kingdom, Filum/Divisi, Kelas, Ordo, Famili, Genus, Spesies."
+            },
+            {
+                question: "Saat air dipanaskan hingga mendidih, partikel-partikel air akan...",
+                options: ["Bergerak lebih lambat dan merapat", "Hanya bergetar di tempat", "Bergerak lebih cepat dan saling menjauh", "Kehilangan semua energinya"],
+                answer: "Bergerak lebih cepat dan saling menjauh",
+                explanation: "Pemanasan memberikan energi pada partikel, membuatnya bergerak lebih cepat dan mengatasi gaya tarik antar partikel, sehingga berubah dari wujud cair menjadi gas (uap air)."
+            },
+            {
+                question: "Berikut ini yang merupakan contoh perubahan kimia adalah...",
+                options: ["Lilin meleleh", "Air membeku", "Besi berkarat", "Gula larut dalam air"],
+                answer: "Besi berkarat",
+                explanation: "Besi berkarat adalah perubahan kimia karena besi (Fe) bereaksi dengan oksigen dan air membentuk zat baru, yaitu karat besi (Fe2O3.nH2O), dengan sifat yang berbeda dari besi."
+            },
+            {
+                question: "Gerhana Bulan terjadi ketika posisi...",
+                options: ["Bumi berada di antara Matahari dan Bulan", "Bulan berada di antara Matahari dan Bumi", "Matahari berada di antara Bumi dan Bulan", "Bumi, Bulan, dan Matahari membentuk sudut 90 derajat"],
+                answer: "Bumi berada di antara Matahari dan Bulan",
+                explanation: "Gerhana Bulan terjadi saat Bumi menghalangi cahaya Matahari sehingga tidak sampai ke Bulan. Ini hanya bisa terjadi saat Bumi berada di antara Matahari dan Bulan."
+            },
+             {
+                question: "Hewan khas Indonesia yang termasuk dalam fauna tipe Peralihan (zona Wallacea) adalah...",
+                options: ["Orang utan", "Anoa", "Kanguru Pohon", "Gajah Sumatera"],
+                answer: "Anoa",
+                explanation: "Fauna tipe Peralihan adalah hewan endemik yang berada di wilayah antara Garis Wallace dan Garis Webber, seperti Sulawesi. Anoa adalah hewan khas Sulawesi."
+            },
+            {
+                question: "Alat laboratorium yang berfungsi untuk mengukur volume cairan dengan akurat adalah...",
+                options: ["Gelas kimia (beaker glass)", "Labu Erlenmeyer", "Tabung reaksi", "Gelas ukur"],
+                answer: "Gelas ukur",
+                explanation: "Gelas ukur dirancang khusus dengan skala volume yang detail untuk pengukuran volume cairan secara akurat."
+            },
+            {
+                question: "Pemasangan kabel listrik di tiang-tiang dibuat sedikit kendor. Hal ini bertujuan untuk...",
+                options: ["Menghemat biaya kabel", "Mengantisipasi penyusutan saat suhu dingin", "Memperindah pemandangan", "Memudahkan perbaikan"],
+                answer: "Mengantisipasi penyusutan saat suhu dingin",
+                explanation: "Pada suhu dingin (malam hari), kabel akan menyusut (memendek). Jika dipasang terlalu kencang, kabel bisa putus saat menyusut."
+            },
+            {
+                question: "Seorang pengendara motor menempuh jarak 180 km dalam waktu 3 jam. Kelajuan rata-rata pengendara motor tersebut adalah...",
+                options: ["50 km/jam", "60 km/jam", "70 km/jam", "90 km/jam"],
+                answer: "60 km/jam",
+                explanation: "Kelajuan dihitung dengan membagi jarak dengan waktu. Kelajuan = 180 km / 3 jam = 60 km/jam."
+            },
+            {
+                question: "Contoh organisme yang termasuk dalam Kingdom Monera adalah...",
+                options: ["Amoeba", "Jamur Tiram", "Bakteri E. coli", "Tanaman Paku"],
+                answer: "Bakteri E. coli",
+                explanation: "Kingdom Monera beranggotakan organisme prokariotik (tanpa membran inti sel), contohnya adalah bakteri."
+            },
+            {
+                question: "Dalam sebuah rantai makanan, elang yang memangsa ular berperan sebagai...",
+                options: ["Produsen", "Konsumen I", "Konsumen II", "Konsumen puncak"],
+                answer: "Konsumen puncak",
+                explanation: "Dalam rantai makanan: Padi -> Tikus -> Ular -> Elang. Elang berada di tingkat trofik tertinggi dan tidak memiliki predator alami, sehingga disebut konsumen puncak."
+            },
+            {
+                question: "Planet yang dikenal sebagai 'Planet Merah' karena permukaannya yang kaya akan besi oksida adalah...",
+                options: ["Venus", "Mars", "Jupiter", "Saturnus"],
+                answer: "Mars",
+                explanation: "Permukaan Mars yang kemerahan disebabkan oleh banyaknya debu besi oksida (karat) di permukaannya."
+            },
+            {
+                question: "Peristiwa pasang surut air laut di Bumi paling dominan dipengaruhi oleh gaya gravitasi...",
+                options: ["Matahari", "Bulan", "Jupiter", "Venus"],
+                answer: "Bulan",
+                explanation: "Meskipun Matahari jauh lebih besar, jarak Bulan yang sangat dekat dengan Bumi membuat gaya gravitasinya menjadi pengaruh utama terjadinya pasang surut air laut."
+            },
+            {
+                question: "Upaya pelestarian orang utan dengan menempatkannya di Taman Nasional Tanjung Puting adalah contoh konservasi...",
+                options: ["Ex-situ", "In-situ", "Domestikasi", "Hibridisasi"],
+                answer: "In-situ",
+                explanation: "Konservasi in-situ adalah upaya pelestarian makhluk hidup di habitat aslinya. Taman Nasional adalah salah satu bentuknya."
+            }
+        ];
+
+        const essayQuiz = [
+            {
+                question: "Jelaskan langkah-langkah metode ilmiah secara berurutan dan berikan contoh singkat penerapannya!",
+                answer: "Urutan metode ilmiah: 1. Observasi (melihat daun menguning), 2. Rumusan Masalah (mengapa daun kuning?), 3. Hipotesis (mungkin kekurangan air), 4. Eksperimen (menyiram satu tanaman secara rutin, yang lain tidak), 5. Analisis Data (tanaman yang disiram tetap hijau), 6. Kesimpulan (kekurangan air menyebabkan daun menguning)."
+            },
+            {
+                question: "Bedakan antara perubahan fisika dan perubahan kimia, serta berikan masing-masing satu contoh!",
+                answer: "Perubahan fisika tidak menghasilkan zat baru, hanya mengubah bentuk atau wujud (contoh: es mencair). Perubahan kimia menghasilkan zat baru dengan sifat berbeda (contoh: kayu dibakar menjadi arang). Perubahan fisika dapat kembali, sedangkan perubahan kimia tidak."
+            },
+            {
+                question: "Jelaskan tiga cara perpindahan kalor (konduksi, konveksi, radiasi) beserta contohnya dalam kehidupan sehari-hari!",
+                answer: "1. Konduksi: perpindahan panas melalui benda padat (contoh: gagang panci ikut panas saat memasak). 2. Konveksi: perpindahan panas melalui aliran zat cair/gas (contoh: gerakan air mendidih). 3. Radiasi: perpindahan panas tanpa perantara (contoh: panas matahari terasa di kulit)."
+            },
+            {
+                question: "Apa perbedaan mendasar antara rantai makanan dan jaring-jaring makanan dalam sebuah ekosistem?",
+                answer: "Rantai makanan adalah satu jalur tunggal aliran energi (misal: rumput-belalang-katak). Jaring-jaring makanan adalah kumpulan dari beberapa rantai makanan yang saling berhubungan, menunjukkan bahwa satu organisme bisa memakan atau dimakan oleh lebih dari satu jenis organisme lain, sehingga lebih kompleks dan realistis."
+            },
+            {
+                question: "Mengapa terjadi pergantian musim di sebagian wilayah Bumi? Jelaskan kaitannya dengan gerak Bumi!",
+                answer: "Pergantian musim disebabkan oleh revolusi Bumi (peredaran Bumi mengelilingi Matahari) dan kemiringan sumbu rotasi Bumi (23,5 derajat). Kemiringan ini menyebabkan sebagian belahan Bumi menerima sinar matahari lebih langsung (mengalami musim panas) sementara belahan lain menerima sinar lebih miring (mengalami musim dingin) secara bergantian sepanjang tahun."
+            }
+        ];
+
+        let currentQuizData = [];
+        let currentQuestionIndex = 0;
+        let userAnswers = {}; // { 0: 'A', 1: 'C', ... }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const chapterGrid = document.getElementById('chapter-grid');
+            chapters.forEach((chapter, index) => {
+                const card = document.createElement('div');
+                card.className = 'chapter-card bg-white p-6 rounded-lg shadow-md cursor-pointer';
+                card.innerHTML = `<h3 class="font-bold text-lg text-gray-800">${chapter.title}</h3>`;
+                card.onclick = () => showChapter(index);
+                chapterGrid.appendChild(card);
+            });
+
+            document.getElementById('search-input').addEventListener('input', handleSearch);
+        });
+
+        function showChapter(index) {
+            document.getElementById('modal-body').innerHTML = chapters[index].content;
+            document.getElementById('chapter-modal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            const chapterModal = document.getElementById('chapter-modal');
+            const quizModal = document.getElementById('quiz-modal');
+            if (event.target == chapterModal) {
+                chapterModal.style.display = "none";
+            }
+            if (event.target == quizModal) {
+                quizModal.style.display = "none";
+            }
+        }
+
+        function handleSearch(event) {
+            const query = event.target.value.toLowerCase();
+            const resultsContainer = document.getElementById('search-results');
+            const homeContent = document.getElementById('home-content');
+
+            if (query.length < 3) {
+                resultsContainer.innerHTML = '';
+                homeContent.style.display = 'block';
+                return;
+            }
+
+            homeContent.style.display = 'none';
+            resultsContainer.innerHTML = '';
+            
+            const results = chapters.filter(chapter => chapter.title.toLowerCase().includes(query) || chapter.content.toLowerCase().includes(query));
+
+            if (results.length > 0) {
+                resultsContainer.innerHTML = `<h2 class="text-2xl font-bold mb-4">Hasil Pencarian untuk "${query}"</h2>`;
+                results.forEach((chapter, index) => {
+                    const originalIndex = chapters.findIndex(c => c.title === chapter.title);
+                    const resultElem = document.createElement('div');
+                    resultElem.className = 'mb-4 p-4 bg-white rounded shadow cursor-pointer';
+                    resultElem.innerHTML = `<h3 class="font-bold">${chapter.title}</h3><p class="text-sm text-gray-600">Klik untuk membaca...</p>`;
+                    resultElem.onclick = () => showChapter(originalIndex);
+                    resultsContainer.appendChild(resultElem);
+                });
+            } else {
+                resultsContainer.innerHTML = `<p>Tidak ada hasil untuk "${query}".</p>`;
+            }
+        }
+        
+        function startQuiz(type) {
+            currentQuestionIndex = 0;
+            userAnswers = {};
+            if (type === 'multiple-choice') {
+                currentQuizData = multipleChoiceQuiz;
+                document.getElementById('quiz-title').textContent = 'Kuis Pilihan Ganda';
+            } else {
+                currentQuizData = essayQuiz;
+                document.getElementById('quiz-title').textContent = 'Kuis Esai';
+            }
+            
+            document.getElementById('quiz-modal').style.display = 'block';
+            displayQuestion();
+        }
+
+        function displayQuestion() {
+            const quizContent = document.getElementById('quiz-content');
+            const progress = document.getElementById('quiz-progress');
+            const questionData = currentQuizData[currentQuestionIndex];
+            
+            progress.textContent = `Soal ${currentQuestionIndex + 1} dari ${currentQuizData.length}`;
+            
+            let html = `<div class="mb-4"><p class="font-semibold text-lg">${currentQuestionIndex + 1}. ${questionData.question}</p></div>`;
+
+            if (questionData.options) { // Multiple choice
+                html += `<div id="options-container" class="space-y-3">`;
+                questionData.options.forEach((option, index) => {
+                    html += `<div id="option-${index}" class="quiz-option p-3 border-2 border-gray-300 rounded-lg" onclick="selectOption(${index}, this)">${option}</div>`;
+                });
+                html += `</div>`;
+                html += `<div id="quiz-feedback" class="p-4 mt-4 rounded-lg"></div>`;
+
+            } else { // Essay
+                html += `<textarea id="essay-answer" class="w-full p-2 border rounded-lg" rows="5" placeholder="Tulis jawaban singkatmu di sini..."></textarea>`;
+                html += `<button onclick="checkEssayAnswer()" class="mt-2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg">Cek Jawaban</button>`;
+                html += `<div id="essay-feedback" class="p-4 mt-4 rounded-lg bg-yellow-100 border border-yellow-300"></div>`;
+            }
+
+            quizContent.innerHTML = html;
+
+            // Restore previous answer if exists
+            if (userAnswers[currentQuestionIndex] !== undefined) {
+                 if (questionData.options) {
+                    const selectedOptionIndex = userAnswers[currentQuestionIndex];
+                    const optionElem = document.getElementById(`option-${selectedOptionIndex}`);
+                    selectOption(selectedOptionIndex, optionElem);
+                    showFeedback(); // Show feedback for already answered question
+                } else {
+                    document.getElementById('essay-answer').value = userAnswers[currentQuestionIndex];
+                }
+            }
+            
+            updateNavButtons();
+        }
+
+        function selectOption(index, element) {
+            if(userAnswers[currentQuestionIndex] !== undefined) return; // Prevent re-answering
+
+            const allOptions = document.querySelectorAll('.quiz-option');
+            allOptions.forEach(opt => opt.classList.remove('selected'));
+            element.classList.add('selected');
+
+            userAnswers[currentQuestionIndex] = index;
+            showFeedback();
+        }
+
+        function showFeedback() {
+            const selectedIndex = userAnswers[currentQuestionIndex];
+            const questionData = currentQuizData[currentQuestionIndex];
+            const feedbackElem = document.getElementById('quiz-feedback');
+            const selectedOptionElem = document.getElementById(`option-${selectedIndex}`);
+            const correctIndex = questionData.options.indexOf(questionData.answer);
+            const correctOptionElem = document.getElementById(`option-${correctIndex}`);
+
+            if (selectedIndex === correctIndex) {
+                selectedOptionElem.classList.remove('selected');
+                selectedOptionElem.classList.add('correct');
+                feedbackElem.className = 'p-4 mt-4 rounded-lg bg-green-100 text-green-800';
+                feedbackElem.innerHTML = `<strong>Benar!</strong><br>${questionData.explanation}`;
+            } else {
+                selectedOptionElem.classList.remove('selected');
+                selectedOptionElem.classList.add('incorrect');
+                correctOptionElem.classList.add('correct');
+                feedbackElem.className = 'p-4 mt-4 rounded-lg bg-red-100 text-red-800';
+                feedbackElem.innerHTML = `<strong>Salah.</strong> Jawaban yang benar adalah <strong>${questionData.answer}</strong>.<br>${questionData.explanation}`;
+            }
+            feedbackElem.style.display = 'block';
+
+             // Disable all options after answering
+            const allOptions = document.querySelectorAll('.quiz-option');
+            allOptions.forEach(opt => opt.onclick = null);
+        }
+
+        function checkEssayAnswer() {
+            const userAnswer = document.getElementById('essay-answer').value;
+            userAnswers[currentQuestionIndex] = userAnswer;
+            const feedbackElem = document.getElementById('essay-feedback');
+            const questionData = currentQuizData[currentQuestionIndex];
+
+            feedbackElem.innerHTML = `<strong>Jawaban yang Disarankan:</strong><br>${questionData.answer}<br><br>Bandingkan jawabanmu dengan jawaban di atas.`;
+            feedbackElem.style.display = 'block';
+        }
+        
+        function nextQuestion() {
+            if (currentQuestionIndex < currentQuizData.length - 1) {
+                currentQuestionIndex++;
+                displayQuestion();
+            } else {
+                showQuizResult();
+            }
+        }
+
+        function prevQuestion() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                displayQuestion();
+            }
+        }
+
+        function updateNavButtons() {
+            document.getElementById('prev-question-btn').style.display = currentQuestionIndex > 0 ? 'block' : 'none';
+            if(currentQuestionIndex === currentQuizData.length - 1){
+                 document.getElementById('next-question-btn').textContent = 'Lihat Hasil';
+            } else {
+                 document.getElementById('next-question-btn').textContent = 'Selanjutnya';
+            }
+        }
+
+        function showQuizResult() {
+            const quizContent = document.getElementById('quiz-content');
+            let correctCount = 0;
+            if (currentQuizData[0].options) { // It's a multiple choice quiz
+                 for (let i = 0; i < currentQuizData.length; i++) {
+                    const correctIndex = currentQuizData[i].options.indexOf(currentQuizData[i].answer);
+                    if (userAnswers[i] === correctIndex) {
+                        correctCount++;
+                    }
+                }
+                const score = (correctCount / currentQuizData.length) * 100;
+                 quizContent.innerHTML = `
+                    <h3 class="text-xl font-bold">Kuis Selesai!</h3>
+                    <p class="my-4">Anda menjawab benar ${correctCount} dari ${currentQuizData.length} soal.</p>
+                    <p class="text-2xl font-bold">Skor Anda: ${score.toFixed(0)}</p>
+                    <button onclick="closeModal('quiz-modal')" class="mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Tutup</button>
+                `;
+            } else { // Essay quiz
+                 quizContent.innerHTML = `
+                    <h3 class="text-xl font-bold">Kuis Esai Selesai!</h3>
+                    <p class="my-4">Anda telah menyelesaikan semua soal esai. Silakan tinjau kembali jawaban Anda dan pembahasan yang diberikan.</p>
+                     <button onclick="closeModal('quiz-modal')" class="mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Tutup</button>
+                `;
+            }
+           
+            document.getElementById('prev-question-btn').style.display = 'none';
+            document.getElementById('next-question-btn').style.display = 'none';
+            document.getElementById('quiz-progress').style.display = 'none';
+
+        }
+
+    </script>
+</body>
+</html>
